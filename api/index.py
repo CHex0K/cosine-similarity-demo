@@ -3,8 +3,9 @@ import dash
 from dash import dcc, html, Input, Output
 import plotly.graph_objects as go
 
-# Создаём Dash-приложение.
-# MathJax можно не подключать вручную — dcc.Markdown(mathjax=True) сам его подтянет.
+# -----------------------------------------
+# Dash app (MathJax включается флагом mathjax=True в dcc.Markdown)
+# -----------------------------------------
 dash_app = dash.Dash(__name__)
 dash_app.title = "Cosine Similarity — Demo"
 server = dash_app.server  # WSGI для Vercel
@@ -21,7 +22,7 @@ def cosine_block(a, b):
     cos = dot / (na * nb) if na != 0 and nb != 0 else np.nan
     theta = float(np.degrees(np.arccos(np.clip(cos, -1, 1)))) if not np.isnan(cos) else np.nan
 
-    # ⚠️ ВАЖНО: используем $$...$$ и $...$ вместо \[...\]
+    # Формулы как LaTeX в Markdown. ВАЖНО: используем $$...$$
     md = rf"""
 **Векторы**
 $$
@@ -54,7 +55,7 @@ $$
 """
     panel = dcc.Markdown(
         md,
-        mathjax=True,  # включаем MathJax-рендер
+        mathjax=True,
         style={
             "fontSize": "16px",
             "lineHeight": "1.45",
@@ -67,14 +68,17 @@ $$
     )
     return cos, theta, dot, na, nb, panel
 
+
 # ---------- начальные векторы ----------
 v1 = np.array([7.0, 3.0])
 v2 = np.array([3.0, 7.0])
+
 
 # ---------- построение графика ----------
 def make_figure(a, b):
     ax, ay = a
     bx, by = b
+
     fig = go.Figure()
 
     # основные векторы
@@ -111,10 +115,70 @@ def make_figure(a, b):
     )
     return fig
 
+
 # ---------- Layout ----------
+theory_block = dcc.Markdown(
+    """
+### Что такое косинусное сходство?
+
+Косинусное сходство измеряет **насколько два вектора направлены в одну сторону**, независимо от их длины.
+Если представить векторы как стрелки, оно показывает косинус угла между ними:
+
+- **1** → векторы совпадают по направлению  
+- **0** → перпендикулярны  
+- **–1** → противоположны
+
+---
+
+### Формула
+
+$$
+\\text{cos\\_sim}(A, B) = \\frac{A \\cdot B}{\\|A\\|\\,\\|B\\|}
+$$
+
+Эта формула следует из геометрического определения скалярного произведения:
+
+$$
+A \\cdot B = \\|A\\|\\,\\|B\\|\\cos(\\theta)
+\\quad\\Rightarrow\\quad
+\\cos(\\theta) = \\frac{A \\cdot B}{\\|A\\|\\,\\|B\\|}
+$$
+
+---
+
+### Почему это полезно
+
+- Убирает влияние длины (нормализация)  
+- Смотрит на **направление**, а не на масштаб  
+- Легко интерпретировать: ближе к 1 — больше сходство
+
+---
+
+### Пример
+
+Пусть $A=(1,0)$ и $B=(0,1)$.
+Тогда $A\\cdot B = 0$, длины равны $1$, а косинусное сходство $=0$ — векторы перпендикулярны.
+    """,
+    mathjax=True,
+    style={
+        "background": "#fff",
+        "padding": "16px",
+        "border": "1px solid #eee",
+        "borderRadius": "8px",
+        "marginBottom": "20px",
+        "fontSize": "15px",
+        "lineHeight": "1.6",
+    },
+)
+
 dash_app.layout = html.Div(
     [
         html.H2("Интерактивная симуляция косинусного сходства (2D)", style={"margin": "10px 0 18px 0"}),
+
+        # Теория сверху
+        theory_block,
+
+        # Интерактивная часть
         html.Div(
             [
                 dcc.Graph(
@@ -138,6 +202,7 @@ dash_app.layout = html.Div(
 )
 def on_drag(relayoutData):
     global v1, v2
+
     if relayoutData:
         if "shapes[0].x1" in relayoutData and "shapes[0].y1" in relayoutData:
             v1 = np.array([relayoutData["shapes[0].x1"], relayoutData["shapes[0].y1"]], dtype=float)
@@ -150,5 +215,5 @@ def on_drag(relayoutData):
     fig.update_layout(title=dict(text=subtitle, x=0.5, y=0.97, xanchor="center", yanchor="top", font=dict(size=14)))
     return fig, formulas
 
-# Экспорт для Vercel (WSGI/ASGI приложение)
+# ---------- Экспорт для Vercel ----------
 app = server
