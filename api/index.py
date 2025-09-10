@@ -3,16 +3,11 @@ import dash
 from dash import dcc, html, Input, Output
 import plotly.graph_objects as go
 
-# ---------------- MathJax подключение ----------------
-# Подтягиваем MathJax v3 (TeX → CHTML)
-dash_app = dash.Dash(
-    __name__,
-    external_scripts=["https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"],
-)
+# Создаём Dash-приложение.
+# MathJax можно не подключать вручную — dcc.Markdown(mathjax=True) сам его подтянет.
+dash_app = dash.Dash(__name__)
 dash_app.title = "Cosine Similarity — Demo"
-
-# Flask (WSGI) сервер, который увидит Vercel
-server = dash_app.server
+server = dash_app.server  # WSGI для Vercel
 
 # ---------- математика ----------
 def cosine_block(a, b):
@@ -26,39 +21,40 @@ def cosine_block(a, b):
     cos = dot / (na * nb) if na != 0 and nb != 0 else np.nan
     theta = float(np.degrees(np.arccos(np.clip(cos, -1, 1)))) if not np.isnan(cos) else np.nan
 
-    # LaTeX-разметка (Markdown + формулы)
+    # ⚠️ ВАЖНО: используем $$...$$ и $...$ вместо \[...\]
     md = rf"""
-**Векторы:**
-\[
+**Векторы**
+$$
 \mathbf{{A}}=\begin{{bmatrix}}{ax:.2f}\\ {ay:.2f}\end{{bmatrix}},\quad
 \mathbf{{B}}=\begin{{bmatrix}}{bx:.2f}\\ {by:.2f}\end{{bmatrix}}
-\]
+$$
 
-**Скалярное произведение:**
-\[
+**Скалярное произведение**
+$$
 \mathbf{{A}}\cdot\mathbf{{B}} = {ax:.2f}\cdot{bx:.2f} + {ay:.2f}\cdot{by:.2f} = {dot:.2f}
-\]
+$$
 
-**Нормы:**
-\[
-\lVert \mathbf{{A}} \rVert = \sqrt{{{ax:.2f}^2 + {ay:.2f}^2}} = {na:.2f},\qquad
+**Нормы**
+$$
+\lVert \mathbf{{A}} \rVert = \sqrt{{{ax:.2f}^2 + {ay:.2f}^2}} = {na:.2f}
+\qquad
 \lVert \mathbf{{B}} \rVert = \sqrt{{{bx:.2f}^2 + {by:.2f}^2}} = {nb:.2f}
-\]
+$$
 
-**Косинусное сходство:**
-\[
+**Косинусное сходство**
+$$
 \cos(\theta) = \frac{{\mathbf{{A}}\cdot\mathbf{{B}}}}{{\lVert\mathbf{{A}}\rVert\,\lVert\mathbf{{B}}\rVert}}
 = {"" if np.isnan(cos) else f"{cos:.3f}"}
-\]
+$$
 
-**Угол:**
-\[
+**Угол**
+$$
 \theta = {"" if np.isnan(theta) else f"{theta:.1f}\\,^\\circ"}
-\]
+$$
 """
     panel = dcc.Markdown(
         md,
-        mathjax=True,  # даём Dash сигнал прогонять через MathJax
+        mathjax=True,  # включаем MathJax-рендер
         style={
             "fontSize": "16px",
             "lineHeight": "1.45",
@@ -71,17 +67,14 @@ def cosine_block(a, b):
     )
     return cos, theta, dot, na, nb, panel
 
-
 # ---------- начальные векторы ----------
 v1 = np.array([7.0, 3.0])
 v2 = np.array([3.0, 7.0])
-
 
 # ---------- построение графика ----------
 def make_figure(a, b):
     ax, ay = a
     bx, by = b
-
     fig = go.Figure()
 
     # основные векторы
@@ -118,18 +111,16 @@ def make_figure(a, b):
     )
     return fig
 
-
 # ---------- Layout ----------
 dash_app.layout = html.Div(
     [
         html.H2("Интерактивная симуляция косинусного сходства (2D)", style={"margin": "10px 0 18px 0"}),
-
         html.Div(
             [
                 dcc.Graph(
                     id="vector-plot",
                     figure=make_figure(v1, v2),
-                    config={"editable": True},  # перетаскиваем концы векторов
+                    config={"editable": True},
                     style={"flex": "2"},
                 ),
                 html.Div(id="formula-panel", style={"flex": "1", "marginLeft": "20px"}),
@@ -139,7 +130,6 @@ dash_app.layout = html.Div(
     ]
 )
 
-
 # ---------- Callbacks ----------
 @dash_app.callback(
     Output("vector-plot", "figure"),
@@ -148,8 +138,6 @@ dash_app.layout = html.Div(
 )
 def on_drag(relayoutData):
     global v1, v2
-
-    # перетаскивание shape[0] и shape[1] (концы A и B)
     if relayoutData:
         if "shapes[0].x1" in relayoutData and "shapes[0].y1" in relayoutData:
             v1 = np.array([relayoutData["shapes[0].x1"], relayoutData["shapes[0].y1"]], dtype=float)
@@ -158,13 +146,9 @@ def on_drag(relayoutData):
 
     cos, theta, dot, na, nb, formulas = cosine_block(v1, v2)
     fig = make_figure(v1, v2)
-
     subtitle = f"A·B={dot:.2f} | ||A||={na:.2f} ||B||={nb:.2f} | cos(θ)={'' if np.isnan(cos) else f'{cos:.3f}'}"
     fig.update_layout(title=dict(text=subtitle, x=0.5, y=0.97, xanchor="center", yanchor="top", font=dict(size=14)))
-
     return fig, formulas
 
-
-# ---------- Экспорт для Vercel ----------
-# Vercel Python ищет переменную 'app' (WSGI/ASGI).
+# Экспорт для Vercel (WSGI/ASGI приложение)
 app = server
