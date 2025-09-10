@@ -133,6 +133,9 @@ def make_figure(a, b):
 app = dash.Dash(__name__)
 app.title = "Cosine Similarity — Demo"
 
+# Для работы с Vercel
+server = app.server
+
 app.layout = html.Div([
     html.H2("Интерактивная симуляция косинусного сходства (2D)",
             style={"margin": "10px 0 18px 0"}),
@@ -173,4 +176,4 @@ def on_drag(relayoutData):
     return fig, formulas
 
 if __name__ == "__main__":
-    app.run(debug=True)  # Dash 3.x
+    app.run(debug=True, host="0.0.0.0", port=8000)  # Dash 3.x
