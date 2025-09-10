@@ -175,5 +175,8 @@ def on_drag(relayoutData):
 
     return fig, formulas
 
+# Экспорт для Vercel
+application = app.server
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)  # Dash 3.x
