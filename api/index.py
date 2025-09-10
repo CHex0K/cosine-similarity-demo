@@ -3,98 +3,65 @@ import dash
 from dash import dcc, html, Input, Output
 import plotly.graph_objects as go
 
+# ---------------- MathJax подключение ----------------
+# Подтягиваем MathJax v3 (TeX → CHTML)
+dash_app = dash.Dash(
+    __name__,
+    external_scripts=["https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"],
+)
+dash_app.title = "Cosine Similarity — Demo"
+
+# Flask (WSGI) сервер, который увидит Vercel
+server = dash_app.server
+
 # ---------- математика ----------
 def cosine_block(a, b):
     ax, ay = float(a[0]), float(a[1])
     bx, by = float(b[0]), float(b[1])
 
     dot = ax * bx + ay * by
-    na2, nb2 = ax * ax + ay * ay, bx * bx + by * by
-    na, nb = np.sqrt(na2), np.sqrt(nb2)
+    na = float(np.sqrt(ax * ax + ay * ay))
+    nb = float(np.sqrt(bx * bx + by * by))
 
     cos = dot / (na * nb) if na != 0 and nb != 0 else np.nan
     theta = float(np.degrees(np.arccos(np.clip(cos, -1, 1)))) if not np.isnan(cos) else np.nan
 
-    def fnum(x, p=2):
-        return f"{x:.{p}f}"
+    # LaTeX-разметка (Markdown + формулы)
+    md = rf"""
+**Векторы:**
+\[
+\mathbf{{A}}=\begin{{bmatrix}}{ax:.2f}\\ {ay:.2f}\end{{bmatrix}},\quad
+\mathbf{{B}}=\begin{{bmatrix}}{bx:.2f}\\ {by:.2f}\end{{bmatrix}}
+\]
 
-    right_panel = html.Div(
-        [
-            html.H4("Формулы", style={"marginTop": 0, "marginBottom": "8px"}),
+**Скалярное произведение:**
+\[
+\mathbf{{A}}\cdot\mathbf{{B}} = {ax:.2f}\cdot{bx:.2f} + {ay:.2f}\cdot{by:.2f} = {dot:.2f}
+\]
 
-            html.Div(
-                [
-                    html.Div(
-                        [html.B("A = "),
-                         html.Code(f"[{fnum(ax)}, {fnum(ay)}]"),
-                         " = ", html.Code(f"[{fnum(ax)}, 0]"), " + ", html.Code(f"[0, {fnum(ay)}]")]
-                    ),
-                    html.Div(
-                        [html.B("B = "),
-                         html.Code(f"[{fnum(bx)}, {fnum(by)}]"),
-                         " = ", html.Code(f"[{fnum(bx)}, 0]"), " + ", html.Code(f"[0, {fnum(by)}]")]
-                    ),
-                ],
-                style={"marginBottom": "10px"},
-            ),
+**Нормы:**
+\[
+\lVert \mathbf{{A}} \rVert = \sqrt{{{ax:.2f}^2 + {ay:.2f}^2}} = {na:.2f},\qquad
+\lVert \mathbf{{B}} \rVert = \sqrt{{{bx:.2f}^2 + {by:.2f}^2}} = {nb:.2f}
+\]
 
-            html.Hr(),
+**Косинусное сходство:**
+\[
+\cos(\theta) = \frac{{\mathbf{{A}}\cdot\mathbf{{B}}}}{{\lVert\mathbf{{A}}\rVert\,\lVert\mathbf{{B}}\rVert}}
+= {"" if np.isnan(cos) else f"{cos:.3f}"}
+\]
 
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            html.B("Скалярное произведение: "),
-                            html.Code(f"A · B = {fnum(ax)}·{fnum(bx)} + {fnum(ay)}·{fnum(by)} = {fnum(dot)}"),
-                        ]
-                    ),
-                ],
-                style={"marginBottom": "10px"},
-            ),
-
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            html.B("Норма A: "),
-                            html.Code(
-                                f"||A|| = √({fnum(ax)}² + {fnum(ay)}²) "
-                                f"= √({fnum(ax*ax)} + {fnum(ay*ay)}) = {fnum(na)}"
-                            ),
-                        ]
-                    ),
-                    html.Div(
-                        [
-                            html.B("Норма B: "),
-                            html.Code(
-                                f"||B|| = √({fnum(bx)}² + {fnum(by)}²) "
-                                f"= √({fnum(bx*bx)} + {fnum(by*by)}) = {fnum(nb)}"
-                            ),
-                        ]
-                    ),
-                ],
-                style={"marginBottom": "10px"},
-            ),
-
-            html.Div(
-                [
-                    html.B("Косинусное сходство: "),
-                    html.Code(
-                        "cos(θ) = (A·B) / (||A||·||B||) = "
-                        f"{fnum(dot)} / ({fnum(na)}·{fnum(nb)})"
-                        + (f" = {fnum(cos, 3)}" if not np.isnan(cos) else " = неопределено")
-                    ),
-                ],
-                style={"marginBottom": "6px"},
-            ),
-
-            html.Div(
-                [html.B("Угол θ: "), html.Code(f"{fnum(theta, 1)}°" if not np.isnan(theta) else "неопределён")]
-            ),
-        ],
+**Угол:**
+\[
+\theta = {"" if np.isnan(theta) else f"{theta:.1f}\\,^\\circ"}
+\]
+"""
+    panel = dcc.Markdown(
+        md,
+        mathjax=True,  # даём Dash сигнал прогонять через MathJax
         style={
             "fontSize": "16px",
-            "lineHeight": "1.35",
+            "lineHeight": "1.45",
             "background": "#fafafa",
             "border": "1px solid #e7e7e7",
             "borderRadius": "10px",
@@ -102,8 +69,7 @@ def cosine_block(a, b):
             "boxShadow": "0 1px 2px rgba(0,0,0,0.06)",
         },
     )
-
-    return cos, theta, dot, na, nb, right_panel
+    return cos, theta, dot, na, nb, panel
 
 
 # ---------- начальные векторы ----------
@@ -123,72 +89,41 @@ def make_figure(a, b):
     fig.add_shape(type="line", x0=0, y0=0, x1=bx, y1=by, line=dict(color="#1e88e5", width=5))
 
     # проекции (подвекторы)
-    fig.add_trace(
-        go.Scatter(x=[0, ax], y=[0, 0], mode="lines", line=dict(width=3, dash="dash", color="#ef9a9a"), showlegend=False)
-    )
-    fig.add_trace(
-        go.Scatter(x=[0, 0], y=[0, ay], mode="lines", line=dict(width=3, dash="dash", color="#ef9a9a"), showlegend=False)
-    )
-    fig.add_trace(
-        go.Scatter(x=[0, bx], y=[0, 0], mode="lines", line=dict(width=3, dash="dash", color="#90caf9"), showlegend=False)
-    )
-    fig.add_trace(
-        go.Scatter(x=[0, 0], y=[0, by], mode="lines", line=dict(width=3, dash="dash", color="#90caf9"), showlegend=False)
-    )
+    fig.add_trace(go.Scatter(x=[0, ax], y=[0, 0], mode="lines",
+                             line=dict(width=3, dash="dash", color="#ef9a9a"), showlegend=False))
+    fig.add_trace(go.Scatter(x=[0, 0], y=[0, ay], mode="lines",
+                             line=dict(width=3, dash="dash", color="#ef9a9a"), showlegend=False))
+    fig.add_trace(go.Scatter(x=[0, bx], y=[0, 0], mode="lines",
+                             line=dict(width=3, dash="dash", color="#90caf9"), showlegend=False))
+    fig.add_trace(go.Scatter(x=[0, 0], y=[0, by], mode="lines",
+                             line=dict(width=3, dash="dash", color="#90caf9"), showlegend=False))
 
     # маркеры и подписи
-    fig.add_trace(
-        go.Scatter(
-            x=[ax],
-            y=[ay],
-            mode="markers+text",
-            marker=dict(size=10, color="#e53935"),
-            text=[f"A({ax:.2f}, {ay:.2f})"],
-            textposition="top center",
-            showlegend=False,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[bx],
-            y=[by],
-            mode="markers+text",
-            marker=dict(size=10, color="#1e88e5"),
-            text=[f"B({bx:.2f}, {by:.2f})"],
-            textposition="top center",
-            showlegend=False,
-        )
-    )
+    fig.add_trace(go.Scatter(x=[ax], y=[ay], mode="markers+text",
+                             marker=dict(size=10, color="#e53935"),
+                             text=[f"A({ax:.2f}, {ay:.2f})"], textposition="top center", showlegend=False))
+    fig.add_trace(go.Scatter(x=[bx], y=[by], mode="markers+text",
+                             marker=dict(size=10, color="#1e88e5"),
+                             text=[f"B({bx:.2f}, {by:.2f})"], textposition="top center", showlegend=False))
 
     # фиксированные оси
     fig.update_layout(
-        xaxis=dict(
-            range=[-10, 10],
-            zeroline=True,
-            mirror=True,
-            showgrid=True,
-            gridcolor="#f0f0f0",
-            scaleanchor="y",
-            scaleratio=1,
-        ),
+        xaxis=dict(range=[-10, 10], zeroline=True, mirror=True, showgrid=True,
+                   gridcolor="#f0f0f0", scaleanchor="y", scaleratio=1),
         yaxis=dict(range=[-10, 10], zeroline=True, mirror=True, showgrid=True, gridcolor="#f0f0f0"),
         margin=dict(l=30, r=20, t=10, b=30),
-        width=680,
-        height=680,
+        width=680, height=680,
         plot_bgcolor="white",
-        showlegend=False,
+        showlegend=False
     )
     return fig
 
 
-# ---------- Dash app ----------
-dash_app = dash.Dash(__name__)
-dash_app.title = "Cosine Similarity — Demo"
-server = dash_app.server  # Flask (WSGI)
-
+# ---------- Layout ----------
 dash_app.layout = html.Div(
     [
         html.H2("Интерактивная симуляция косинусного сходства (2D)", style={"margin": "10px 0 18px 0"}),
+
         html.Div(
             [
                 dcc.Graph(
@@ -205,6 +140,7 @@ dash_app.layout = html.Div(
 )
 
 
+# ---------- Callbacks ----------
 @dash_app.callback(
     Output("vector-plot", "figure"),
     Output("formula-panel", "children"),
@@ -229,6 +165,6 @@ def on_drag(relayoutData):
     return fig, formulas
 
 
-# главное: экспортируем WSGI-приложение для Vercel
-# Vercel Python ищет переменную 'app' (WSGI/ASGI). Никаких handler(event, context) не нужно.
+# ---------- Экспорт для Vercel ----------
+# Vercel Python ищет переменную 'app' (WSGI/ASGI).
 app = server
